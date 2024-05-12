@@ -7,10 +7,17 @@ import (
 )
 
 func main() {
+	postedMessages := []string{}
+
+	// need to manage connections. I must take them, hold them, discard them, transmit them.
+
 	http.HandleFunc("/videocall/getoffers", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			w.Write([]byte("Hey look data"))
-			fmt.Println("got the get request buddy")
+			for _, message := range postedMessages {
+
+				w.Write([]byte(message))
+				fmt.Println("got the get request buddy")
+			}
 		} else {
 			fmt.Println("not a get request")
 		}
@@ -19,6 +26,7 @@ func main() {
 	http.HandleFunc("/videocall/postoffer", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Called")
 		if r.Method == "POST" {
+			fmt.Println("POST CALLED")
 			body, err := io.ReadAll(r.Body)
 
 			if err != nil {
@@ -27,6 +35,7 @@ func main() {
 			}
 
 			fmt.Println(string(body))
+			postedMessages = append(postedMessages, string(body))
 
 		}
 	})
