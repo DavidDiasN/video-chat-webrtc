@@ -41,7 +41,6 @@ func main() {
 	})
 
 	http.HandleFunc("/videocall/makeoffer", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("We made it here")
 		if r.Method == "POST" {
 
 			responseBody, err := io.ReadAll(r.Body)
@@ -62,6 +61,20 @@ func main() {
 	http.HandleFunc("/videocall/assets/js/htmx.min.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/javascript")
 		w.Write(htmxFileBytes)
+	})
+
+	http.HandleFunc("/videocall/incomingAnswers", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("You hit the answer line")
+
+	})
+
+	http.HandleFunc("/videocall/makeAnswer", func(w http.ResponseWriter, r *http.Request) {
+		responseReader := bytes.NewReader([]byte("David"))
+		resp, err := http.Post(apiURL+"/videocall/answeroffer", "text/plain", responseReader)
+		must(err)
+		resB, err := io.ReadAll(resp.Body)
+		must(err)
+		fmt.Println(string(resB))
 	})
 
 	fmt.Errorf("Err: %s", http.ListenAndServe(":32069", nil))

@@ -13,8 +13,11 @@ templ MakeOffer() {
         <link rel="stylesheet" href="style.css"></link>
       </head>
       <body>
-      <div hx-post="" hx-trigger="click" hx-include="[name='user-input']" hx-target="" hx-swap=""> hello </div>
+      <div hx-post="" hx-trigger="click" hx-include="[name='user-input']" hx-target="#item" hx-swap="outerHTML"> hello </div>
       <input type="text" name="user-input" placeholder="Hello"/>
+      <div id="item">
+      This div item should disappear
+      </div>
 
       </body>
     </html>
