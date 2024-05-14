@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -36,8 +37,10 @@ func main() {
 			if returnAddr == "" {
 				return
 			}
-			http.Get()
-			resp, err := http.Get(returnAddr + "/videocall/incomingAnswers")
+			resp, err := http.Get("http://" + returnAddr + "/videocall/incomingAnswers")
+			if err != nil {
+				log.Fatal(err)
+			}
 			must(err)
 
 			fmt.Println("How did that go")
@@ -61,7 +64,8 @@ func main() {
 
 			offer := strings.TrimPrefix(string(body), "user-input=")
 			fmt.Println(offer)
-			postedMessages[offer] = r.RemoteAddr
+			realAddr := trimToColon(r.RemoteAddr)
+			postedMessages[offer] = realAddr + ":32069"
 
 		}
 	})
@@ -72,7 +76,17 @@ func main() {
 func must(err error) {
 
 	if err != nil {
+		fmt.Print("See ya")
 		panic(err)
-		return
 	}
+}
+
+func trimToColon(addr string) string {
+	l := len(addr) - 1
+	for i := l; i > 0; i-- {
+		if addr[i] == ':' {
+			return addr[0:i]
+		}
+	}
+	return ""
 }

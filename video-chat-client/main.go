@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 )
@@ -71,7 +72,10 @@ func main() {
 	http.HandleFunc("/videocall/makeAnswer", func(w http.ResponseWriter, r *http.Request) {
 		responseReader := bytes.NewReader([]byte("David"))
 		resp, err := http.Post(apiURL+"/videocall/answeroffer", "text/plain", responseReader)
-		must(err)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//must(err)
 		resB, err := io.ReadAll(resp.Body)
 		must(err)
 		fmt.Println(string(resB))
