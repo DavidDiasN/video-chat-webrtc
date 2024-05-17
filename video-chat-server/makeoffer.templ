@@ -1,0 +1,44 @@
+package main
+
+templ makeoffer() {
+
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8"></meta>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
+        <meta http-equiv="X-UA-Compatible" content="ie=edge"></meta>
+        <title>Client webrtc chat</title>
+        <link rel="stylesheet" href="style.css"></link>
+      </head>
+      <body>
+      <div>  
+
+        <input type="text" id="user-input" placeholder="Hello"/>
+        <button id="submit-offer-name">Click to submit</button>
+
+        //Once the user clicks the button a websocket will be established. With this every message that the server writes will 
+        // change the page. 
+        // The server needs to write incoming requests to answer.
+        // Clicking accept will send an accept message up to the server.
+
+        <div id="answer-table">
+          <div>Below should be all answer offers</div>
+        
+        </div>
+
+
+
+
+
+
+      </div>
+
+
+        <script src="assets/js/makeoffer.js"></script>
+      </body>
+    </html>
+
+}
+
+

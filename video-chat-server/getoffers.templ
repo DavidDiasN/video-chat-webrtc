@@ -1,0 +1,51 @@
+package main
+
+
+
+
+
+templ getOffersPage(keys []string) {
+
+
+
+
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8"></meta>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
+      <meta http-equiv="X-UA-Compatible" content="ie=edge"></meta>
+      <title>Client webrtc chat</title>
+      <link rel="stylesheet" href="style.css"></link>
+    </head>
+    <body>
+      <div>HEADER AREA</div>
+      <div> MAYBE SOME MORE INFO</div>
+
+
+      <div id="offer-shell">
+        <ul id="offer-list">
+          for _, key := range keys {
+            <li id="offer-item" onclick={ templ.ComponentScript{
+              Name: "connectionRequest('" + key + "')",
+              Function: "connectionRequest('" + key + "')",
+              Call: "connectionRequest('" + key + "')",
+              CallInline: "connectionRequest('" + key + "')"}} value={ key }> { key } </li>
+          }
+
+
+        </ul>
+        
+      </div>
+
+
+
+
+
+      <script src="assets/js/getoffers.js"></script>
+    </body>
+  </html>
+
+}
+
+

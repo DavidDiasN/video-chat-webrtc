@@ -1,76 +1,102 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"strings"
+	"os"
+
+	"github.com/gorilla/websocket"
 )
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
 func main() {
-	postedMessages := map[string]string{}
+
+	postedMessages := map[string]websocket.Conn{"david": websocket.Conn{}, "Michael": websocket.Conn{}, "George": websocket.Conn{}}
+
+	makeofferFile, err := os.Open("assets/js/makeoffer.js")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	makeofferInfo, err := makeofferFile.Stat()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	makeofferFileBytes := make([]byte, makeofferInfo.Size())
+
+	makeofferFile.Read(makeofferFileBytes)
+
+	getoffersFile, err := os.Open("assets/js/getoffers.js")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	getoffersInfo, err := getoffersFile.Stat()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	getoffersFileBytes := make([]byte, getoffersInfo.Size())
+
+	getoffersFile.Read(getoffersFileBytes)
 
 	// need to manage connections. I must take them, hold them, discard them, transmit them.
 
 	http.HandleFunc("/videocall/getoffers", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			for _, message := range postedMessages {
 
-				w.Write([]byte(message))
-				w.Write([]byte("\n"))
+		if r.Method == "GET" {
+			keys := []string{}
+			for k := range postedMessages {
+				keys = append(keys, k)
 			}
+			getPage := getOffersPage(keys)
+			getPage.Render(context.Background(), w)
+
 		} else {
 			fmt.Println("not a get request")
 		}
+
 	})
 
-	http.HandleFunc("/videocall/answeroffer", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/videocall/makeoffer", func(w http.ResponseWriter, r *http.Request) {
 
-		if r.Method == "POST" {
-			fmt.Println("You have reached this spot")
+		comp := makeoffer()
+		comp.Render(context.Background(), w)
 
-			responseBody, err := io.ReadAll(r.Body)
-			must(err)
-			returnAddr := postedMessages[string(responseBody)]
-			fmt.Println("Return addr: " + returnAddr)
-			if returnAddr == "" {
+	})
+
+	http.HandleFunc("/videocall/assets/js/makeoffer.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "text/javascript")
+		w.Write(makeofferFileBytes)
+	})
+
+	http.HandleFunc("/videocall/assets/js/getoffers.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "text/javascript")
+		w.Write(getoffersFileBytes)
+	})
+
+	http.HandleFunc("/videocall/offernameValidation", func(w http.ResponseWriter, r *http.Request) {
+		responseBody, err := io.ReadAll(r.Body)
+		must(err)
+		cleanedInput := string(responseBody)
+		for k := range postedMessages {
+			if k == cleanedInput {
+				w.Write([]byte("NO"))
 				return
 			}
-			resp, err := http.Get("http://" + returnAddr + "/videocall/incomingAnswers")
-			if err != nil {
-				log.Fatal(err)
-			}
-			must(err)
-
-			fmt.Println("How did that go")
-
-			responseBody, err = io.ReadAll(resp.Body)
-			must(err)
-			fmt.Println(resp.Body)
 		}
+		w.Write([]byte("Good to go"))
 
 	})
 
-	http.HandleFunc("/videocall/postoffer", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Called")
-		fmt.Println(r.RemoteAddr)
-
-		if r.Method == "POST" {
-			fmt.Println("POST CALLED")
-			body, err := io.ReadAll(r.Body)
-
-			must(err)
-
-			offer := strings.TrimPrefix(string(body), "user-input=")
-			fmt.Println(offer)
-			realAddr := trimToColon(r.RemoteAddr)
-			postedMessages[offer] = realAddr + ":32069"
-
-		}
-	})
-
-	fmt.Errorf("err %s", http.ListenAndServe(":42069", nil))
+	fmt.Errorf("err %s", http.ListenAndServe(":4009", nil))
 }
 
 func must(err error) {
@@ -79,14 +105,4 @@ func must(err error) {
 		fmt.Print("See ya")
 		panic(err)
 	}
-}
-
-func trimToColon(addr string) string {
-	l := len(addr) - 1
-	for i := l; i > 0; i-- {
-		if addr[i] == ':' {
-			return addr[0:i]
-		}
-	}
-	return ""
 }
