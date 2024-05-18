@@ -11,23 +11,23 @@ import (
 )
 
 func main() {
-	htmxFile, err := os.Open("assets/js/htmx.min.js")
+	makeofferFile, err := os.Open("assets/js/makeoffer.js")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	info, err := htmxFile.Stat()
+	makeofferInfo, err := makeofferFile.Stat()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	htmxFileBytes := make([]byte, info.Size())
+	makeofferFileBytes := make([]byte, makeofferInfo.Size())
 
-	htmxFile.Read(htmxFileBytes)
+	makeofferFile.Read(makeofferFileBytes)
 
 	fmt.Println("Need to connect to server.")
 
-	apiURL := "http://127.0.0.1:42069"
+	apiURL := "http://127.0.0.1:4009"
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		resp, err := http.Get(apiURL + "/videocall/getoffers")
@@ -42,16 +42,11 @@ func main() {
 	})
 
 	http.HandleFunc("/videocall/makeoffer", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-
-			responseBody, err := io.ReadAll(r.Body)
-			must(err)
-			responseReader := bytes.NewReader(responseBody)
-			resp, err := http.Post(apiURL+"/videocall/postoffer", "text/plain", responseReader)
-			must(err)
-			resp.Body.Close()
-			fmt.Println("Offer sent off")
-		} else if r.Method == "GET" {
+		if r.Method == "GET" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization,X-CSRF-Token")
+			w.Header().Set("Access-Control-Expose-Headers", "Authorization")
 			comp := MakeOffer()
 			comp.Render(context.Background(), w)
 		} else {
@@ -59,9 +54,9 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/videocall/assets/js/htmx.min.js", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/videocall/assets/js/makeoffer.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/javascript")
-		w.Write(htmxFileBytes)
+		w.Write(makeofferFileBytes)
 	})
 
 	http.HandleFunc("/videocall/incomingAnswers", func(w http.ResponseWriter, r *http.Request) {
