@@ -4,15 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,7 +27,7 @@ type ConnInfo struct {
 	uuid string
 }
 
-var postedMessages = map[string]ConnInfo{"david": ConnInfo{websocket.Conn{}, uuid.NewString()}, "Michael": ConnInfo{websocket.Conn{}, uuid.NewString()}, "George": ConnInfo{websocket.Conn{}, uuid.NewString()}}
+var postedMessages = map[string]ConnInfo{"David": ConnInfo{websocket.Conn{}, uuid.NewString()}, "Michael": ConnInfo{websocket.Conn{}, uuid.NewString()}, "George": ConnInfo{websocket.Conn{}, uuid.NewString()}}
 
 //postedMessages := map[string]websocket.Conn{"david": websocket.Conn{}, "Michael": websocket.Conn{}, "George": websocket.Conn{}}
 
@@ -102,6 +104,7 @@ func videocallOfferNameValidation(w http.ResponseWriter, r *http.Request) {
 	must(err)
 	cleanedInput := string(responseBody)
 	for k := range postedMessages {
+		fmt.Println(k)
 		if k == cleanedInput {
 			w.Write([]byte("NO"))
 			return
@@ -112,18 +115,42 @@ func videocallOfferNameValidation(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(returnUUID))
 }
 
+func validateNameHash(nameHash string) bool {
+	objects := strings.Split(nameHash, " ")
+	response := postedMessages[objects[0]]
+	if response.uuid == "" {
+		return false
+	} else if response.uuid == objects[1] {
+		return true
+	} else {
+		return false
+	}
+
+}
+
 //"/videocall/makeoffer/ws",
 
 func videocallMakeOfferWS(w http.ResponseWriter, r *http.Request) {
-	//check body of request for name and uuid
-	requestMessage, err := io.ReadAll(r.Body)
+	//
+
+	conn, err := upgrader.Upgrade(w, r, nil)
 	must(err)
-	fmt.Println(string(requestMessage))
-	if len(requestMessage) > 2 {
-		fmt.Println("has size 2 or more ")
+	var message string
+	_, readBuffer, err := conn.ReadMessage()
+	must(err)
+	if !validateNameHash(string(readBuffer)) {
+		fmt.Println("Invalid")
+		return
+
 	}
-	//conn, err := upgrader.Upgrade(w, r, nil)
-	//must(err)
-	//conn.WriteMessage(1, []byte("Hello my friend"))
+	fmt.Println("made it past")
+	for message != "DONE" {
+		_, readBuffer, err = conn.ReadMessage()
+		must(err)
+		message = string(readBuffer)
+		fmt.Println(message)
+
+	}
+	fmt.Println("left")
 
 }
