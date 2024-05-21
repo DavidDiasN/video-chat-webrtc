@@ -70,7 +70,6 @@ func must(err error) {
 // /videocall/getoffers"
 
 func videocallGetOffers(w http.ResponseWriter, r *http.Request) {
-	//	w.Header().Add("Access-Control-Allow-Origin", "*")
 	if r.Method == "GET" {
 		keys := []string{}
 		for k := range postedMessages {
@@ -80,7 +79,12 @@ func videocallGetOffers(w http.ResponseWriter, r *http.Request) {
 		getPage.Render(context.Background(), w)
 
 	} else {
-		fmt.Println("not a get request")
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		must(err)
+		testMessage := []byte("<li>Anotherone</li>")
+		err = conn.WriteMessage(1, testMessage)
+
 	}
 
 }
@@ -141,8 +145,8 @@ func videocallMakeOfferWS(w http.ResponseWriter, r *http.Request) {
 	if !validateNameHash(string(readBuffer)) {
 		fmt.Println("Invalid")
 		return
-
 	}
+
 	fmt.Println("made it past")
 	for message != "DONE" {
 		_, readBuffer, err = conn.ReadMessage()
