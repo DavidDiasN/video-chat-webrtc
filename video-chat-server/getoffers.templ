@@ -4,7 +4,7 @@ package main
 
 
 
-templ getOffersPage(keys []string) {
+templ getOffersPage() {
 
 
 
@@ -19,20 +19,19 @@ templ getOffersPage(keys []string) {
       <link rel="stylesheet" href="style.css"></link>
     </head>
     <body>
+
+      <div>
+        <input type="text" id="user-input" placeholder="Hello"/>
+        <button id="submit-offer-name" onclick="submitAnswerName()">Click to submit</button>
+      </div>
+
+
       <div>HEADER AREA</div>
       <div> MAYBE SOME MORE INFO</div>
 
 
       <div id="offer-shell">
         <ul id="offer-list">
-          for _, key := range keys {
-            <li id="offer-item" onclick={ templ.ComponentScript{
-              Name: "connectionRequest('" + key + "')",
-              Function: "connectionRequest('" + key + "')",
-              Call: "connectionRequest('" + key + "')",
-              CallInline: "connectionRequest('" + key + "')"}} value={ key }> { key } </li>
-          }
-
 
         </ul>
         

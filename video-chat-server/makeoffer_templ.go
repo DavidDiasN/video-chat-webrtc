@@ -23,7 +23,7 @@ func makeoffer() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><meta http-equiv=\"X-UA-Compatible\" content=\"ie=edge\"><title>Client webrtc chat</title><link rel=\"stylesheet\" href=\"style.css\"></head><body><div><input type=\"text\" id=\"user-input\" placeholder=\"Hello\"> <button id=\"submit-offer-name\" onclick=\"submitOfferName()\">Click to submit</button><div id=\"answer-table\"><div>Below should be all answer offers</div></div></div><script src=\"/static/assets/js/makeoffer.js\"></script></body></html>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><meta http-equiv=\"X-UA-Compatible\" content=\"ie=edge\"><title>Client webrtc chat</title><link rel=\"stylesheet\" href=\"style.css\"></head><body><div><input type=\"text\" id=\"user-input\" placeholder=\"Hello\"> <button id=\"submit-offer-name\" onclick=\"submitOfferName()\">Click to submit</button><div id=\"answer-shell\"><ul id=\"answer-list\"></ul></div></div><div id=\"video-zone\"><h2>Local Video </h2><video id=\"local-video\" autoplay playsinline></video><h2>Remote Video </h2><video id=\"remote-video\" autoplay playsinline></video></div><button id=\"enable-webcam\">Enable Webcam</button><script src=\"/static/assets/js/makeoffer.js\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

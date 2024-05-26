@@ -22,14 +22,20 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-type ConnInfo struct {
-	Conn websocket.Conn
-	uuid string
+type Client struct {
+	inbox chan string
+	uuid  string
 }
 
-var postedMessages = map[string]ConnInfo{"David": ConnInfo{websocket.Conn{}, uuid.NewString()}, "Michael": ConnInfo{websocket.Conn{}, uuid.NewString()}, "George": ConnInfo{websocket.Conn{}, uuid.NewString()}}
+var emptyClient = Client{}
 
-//postedMessages := map[string]websocket.Conn{"david": websocket.Conn{}, "Michael": websocket.Conn{}, "George": websocket.Conn{}}
+// treat all connections/clients the same. This will make things easier. the functions called will make it easy to differentiate between
+// a poster or an answerer.
+var answerClients = map[string]Client{}
+
+var offerClients = map[string]Client{"David": {make(chan string), uuid.NewString()}, "Michael": Client{make(chan string), uuid.NewString()}, "George": Client{make(chan string), uuid.NewString()}}
+
+//client:= map[string]websocket.Conn{"david": websocket.Conn{}, "Michael": websocket.Conn{}, "George": websocket.Conn{}}
 
 func main() {
 
@@ -39,10 +45,12 @@ func main() {
 	flag.Parse()
 	router := mux.NewRouter()
 	router.PathPrefix("/static/assets/js").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
-	router.HandleFunc("/videocall/getoffers", videocallGetOffers)
+	router.HandleFunc("/videocall/MakeAnswer", videocallGetOffers)
 	router.HandleFunc("/videocall/MakeOffer", videocallMakeOffer)
-	router.HandleFunc("/videocall/offernameValidation", videocallOfferNameValidation).Methods("POST")
-	router.HandleFunc("/videocall/MakeOffer/ws", videocallMakeOfferWS)
+	router.HandleFunc("/videocall/OfferValidation", offerValidation).Methods("POST")
+	router.HandleFunc("/videocall/AnswerValidation", answerValidation).Methods("POST")
+	router.HandleFunc("/videocall/MakeOffer/ws", videocallOfferWS)
+	router.HandleFunc("/videocall/MakeAnswer/ws", videocallAnswerWS)
 
 	srv := &http.Server{
 		Handler: handlers.CORS(
@@ -67,29 +75,17 @@ func must(err error) {
 	}
 }
 
-// /videocall/getoffers"
-
 func videocallGetOffers(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		keys := []string{}
-		for k := range postedMessages {
+		for k := range offerClients {
 			keys = append(keys, k)
 		}
-		getPage := getOffersPage(keys)
+		getPage := getOffersPage()
 		getPage.Render(context.Background(), w)
 
-	} else {
-
-		conn, err := upgrader.Upgrade(w, r, nil)
-		must(err)
-		testMessage := []byte("<li>Anotherone</li>")
-		err = conn.WriteMessage(1, testMessage)
-
 	}
-
 }
-
-// "/videocall/makeoffer"
 
 func videocallMakeOffer(w http.ResponseWriter, r *http.Request) {
 
@@ -98,63 +94,185 @@ func videocallMakeOffer(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//"/videocall/offernameValidation"
-
-func videocallOfferNameValidation(w http.ResponseWriter, r *http.Request) {
-
-	//	w.Header().Add("Access-Control-Allow-Origin", "*")
-
+func answerValidation(w http.ResponseWriter, r *http.Request) {
 	responseBody, err := io.ReadAll(r.Body)
 	must(err)
+	// add some input validation or cleaning so that only letters can be used.
 	cleanedInput := string(responseBody)
-	for k := range postedMessages {
-		fmt.Println(k)
-		if k == cleanedInput {
-			w.Write([]byte("NO"))
-			return
-		}
+	searchResult := answerClients[cleanedInput]
+
+	if searchResult != emptyClient {
+		w.Write([]byte("NO"))
+		return
 	}
+
 	returnUUID := uuid.NewString()
-	postedMessages[cleanedInput] = ConnInfo{websocket.Conn{}, returnUUID}
+	answerClients[cleanedInput] = Client{make(chan string), returnUUID}
 	w.Write([]byte(returnUUID))
 }
 
-func validateNameHash(nameHash string) bool {
+func offerValidation(w http.ResponseWriter, r *http.Request) {
+	responseBody, err := io.ReadAll(r.Body)
+	must(err)
+	// add some input validation or cleaning so that only letters can be used.
+	cleanedInput := string(responseBody)
+	searchResult := offerClients[cleanedInput]
+
+	if searchResult != emptyClient {
+		w.Write([]byte("NO"))
+		return
+	}
+
+	returnUUID := uuid.NewString()
+	offerClients[cleanedInput] = Client{make(chan string), returnUUID}
+	w.Write([]byte(returnUUID))
+}
+
+func nameHashAnswerValidation(nameHash string) (string, string, bool) {
 	objects := strings.Split(nameHash, " ")
-	response := postedMessages[objects[0]]
+	response := answerClients[objects[0]]
 	if response.uuid == "" {
-		return false
+		return "", "", false
 	} else if response.uuid == objects[1] {
-		return true
+		return objects[0], objects[1], true
 	} else {
-		return false
+		return "", "", false
 	}
 
 }
 
-//"/videocall/makeoffer/ws",
+func nameHashOfferValidation(nameHash string) (string, string, bool) {
+	objects := strings.Split(nameHash, " ")
+	response := offerClients[objects[0]]
+	if response.uuid == "" {
+		return "", "", false
+	} else if response.uuid == objects[1] {
+		return objects[0], objects[1], true
+	} else {
+		return "", "", false
+	}
 
-func videocallMakeOfferWS(w http.ResponseWriter, r *http.Request) {
-	//
+}
 
+func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	must(err)
 	var message string
 	_, readBuffer, err := conn.ReadMessage()
 	must(err)
-	if !validateNameHash(string(readBuffer)) {
-		fmt.Println("Invalid")
+	message = string(readBuffer)
+	name, hash, boolres := nameHashOfferValidation(message)
+
+	if !boolres {
+		conn.WriteMessage(1, []byte("invalid offer"))
 		return
 	}
 
-	fmt.Println("made it past")
+	fmt.Println(hash)
+	go func() {
+		for {
+
+			select {
+			case a := <-offerClients[name].inbox:
+				// process the string you get
+				// idk about this one
+				conn.WriteMessage(1, []byte(liMaker(a)))
+			}
+		}
+	}()
+
+	go func() {
+		for message != "DONE" {
+			_, readBuffer, err = conn.ReadMessage()
+			must(err)
+			message = string(readBuffer)
+			if message != "DONE" {
+				fmt.Println(message)
+				if strings.HasPrefix(message, "request") {
+					message = strings.TrimPrefix(message, "request ")
+					offerClients[message].inbox <- name
+				}
+			}
+			// send over the stuff
+			// respond with answer
+
+			//select {
+			//case a := <-answerClients[name].inbox:
+			// this will be the sdp or whatever offer
+			//}
+			// THE SIGNAL SERVERS JOB IS DONE
+
+		}
+	}()
+
+	// listen here for messages on the channel
+
+	// when you get a message on the channel you need to send it to the websocket connection
+	// send it in a form it can be displayed in.
+
+}
+
+func videocallAnswerWS(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	must(err)
+	var message string
+	_, readBuffer, err := conn.ReadMessage()
+	must(err)
+	message = string(readBuffer)
+	name, hash, boolres := nameHashAnswerValidation(message)
+
+	must(err)
+	if !boolres {
+		fmt.Println("Invalid")
+		return
+	}
+	fmt.Println(name)
+	fmt.Println(hash)
+
+	// keep reading the offers
+	lastUpdateLen := 0
+
+	go func() {
+
+		for {
+			accu := ""
+			if len(offerClients) != lastUpdateLen {
+				lastUpdateLen = len(offerClients)
+				for key := range offerClients {
+					accu += liMaker(key)
+				}
+				conn.WriteMessage(1, []byte(accu))
+			}
+		}
+	}()
+
 	for message != "DONE" {
 		_, readBuffer, err = conn.ReadMessage()
 		must(err)
 		message = string(readBuffer)
-		fmt.Println(message)
+		if message != "DONE" {
+			// send over the stuff
+			// we need to break up the name we are sending to and the sdp offer
+			if strings.HasPrefix(message, "request") {
+				fmt.Println(message)
+				message = strings.TrimPrefix(message, "request{ ")
+				return
+				/*
+					offerClients[message].inbox <- name
+					select {
+					case a := <-answerClients[name].inbox:
+						fmt.Println(a)
+						// this will be the sdp or whatever offer
+					}
+				*/
+			}
+		}
 
 	}
-	fmt.Println("left")
 
+	fmt.Println("closing")
+}
+
+func liMaker(name string) string {
+	return fmt.Sprintf("<li id=\"offer-item\" onclick=\"clickName('%s')\">%s</li>", name, name)
 }
