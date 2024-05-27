@@ -98,6 +98,27 @@ async function clickName(name) {
   };
 
   console.log(offer)
+  console.log("sdp: " + offer.sdp + "type: " + offer.type)
+
+
+  // wrong language but you know what to do break over in 5 wooo
+  //
+  /*
+func BenchmarkMarshal(b *testing.B) {
+	b.ReportAllocs()
+	var sd SessionDescription
+	err := sd.UnmarshalString(CanonicalUnmarshalSDP)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		_, err = sd.Marshal()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+*/
 
   if (conn !== null) {
     conn.send("request{ name: " + name + " sdp: " + offer);
