@@ -57,22 +57,15 @@ function submitOfferName() {
           conn.onmessage = evt => {
             console.log("MESSAGE RECIEVED: " + evt.data)
 
-            //if (initial) {
-            //  console.log(evt.data)
-            //  initial = false
-            //}
-
             if (evt.data.slice(0,3) === "<li") {
-              console.log("Made it here")
               // add it to the list
+              // break down the html element and sdp
               answerList.innerHTML = evt.data
             } else if (evt.data === "DONE") {
               console.log("wooo bye")
               conn.send("DONE")
               conn.close()
-            } else {
-              console.log(evt.data)
-            }
+            } 
 
             
           }

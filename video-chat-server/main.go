@@ -152,10 +152,8 @@ func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 			select {
 			case a := <-offerClients[name].inbox:
 				// process the string you get
-				// idk about this one
-				fmt.Println("Getting the message on the offer side")
-				fmt.Println(a)
 				// need to save the sdps in a map
+				// maybe just in a map over on the client side tho
 				splitMessage := strings.SplitN(a, " ", 2)
 				fmt.Println(len(splitMessage))
 
