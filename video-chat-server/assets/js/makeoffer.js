@@ -40,6 +40,7 @@ function submitOfferName() {
           conn = new WebSocket('ws://' + document.location.host + '/videocall/MakeOffer/ws');
           //let initial = true;
           let answerList = document.getElementById("answer-list")
+          console.log("ws started")
 
 
 
@@ -89,6 +90,8 @@ function submitOfferName() {
 }
 
 async function clickName(name) {
+
+  // THIS IS THE ANSWER PLACE
   /*
   const offerDescription = await peerConn.createOffer();
   await peerConn.setLocalDescription(offerDescription);
@@ -97,13 +100,11 @@ async function clickName(name) {
     sdp: offerDescription.sdp,
     type: offerDescription.type,
   };
-
-
-  console.log(offer)
   */
-  let offer = "meme"
+
+// on the other side i will simply json parse.
   if (conn !== null) {
-    conn.send("request{ name: " + name + " sdp: " + offer);
+    conn.send("request{ name: " + name);
   } 
 } 
 

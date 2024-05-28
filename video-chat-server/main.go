@@ -128,32 +128,6 @@ func offerValidation(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(returnUUID))
 }
 
-func nameHashAnswerValidation(nameHash string) (string, string, bool) {
-	objects := strings.Split(nameHash, " ")
-	response := answerClients[objects[0]]
-	if response.uuid == "" {
-		return "", "", false
-	} else if response.uuid == objects[1] {
-		return objects[0], objects[1], true
-	} else {
-		return "", "", false
-	}
-
-}
-
-func nameHashOfferValidation(nameHash string) (string, string, bool) {
-	objects := strings.Split(nameHash, " ")
-	response := offerClients[objects[0]]
-	if response.uuid == "" {
-		return "", "", false
-	} else if response.uuid == objects[1] {
-		return objects[0], objects[1], true
-	} else {
-		return "", "", false
-	}
-
-}
-
 func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	must(err)
@@ -169,6 +143,9 @@ func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println(hash)
+
+	incomingOffers := map[string]string{}
+
 	go func() {
 		for {
 
@@ -176,34 +153,46 @@ func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 			case a := <-offerClients[name].inbox:
 				// process the string you get
 				// idk about this one
-				conn.WriteMessage(1, []byte(liMaker(a)))
+				fmt.Println("Getting the message on the offer side")
+				fmt.Println(a)
+				// need to save the sdps in a map
+				splitMessage := strings.SplitN(a, " ", 2)
+				fmt.Println(len(splitMessage))
+
+				incomingOffers[splitMessage[0]] = splitMessage[1]
+				fmt.Println("DONE SPLITING THE MESSAGE")
+				conn.WriteMessage(1, []byte(liMaker(splitMessage[0])))
 			}
 		}
 	}()
 
-	go func() {
-		for message != "DONE" {
-			_, readBuffer, err = conn.ReadMessage()
-			must(err)
-			message = string(readBuffer)
-			if message != "DONE" {
+	for message != "DONE" {
+		_, readBuffer, err = conn.ReadMessage()
+		must(err)
+		message = string(readBuffer)
+		if message != "DONE" {
+			fmt.Println(message)
+			if strings.HasPrefix(message, "request") {
+				message = strings.TrimPrefix(message, "request{ ")
 				fmt.Println(message)
-				if strings.HasPrefix(message, "request") {
-					message = strings.TrimPrefix(message, "request ")
+
+				return
+				// message must contain the target and the answer.
+				/*
 					offerClients[message].inbox <- name
-				}
+				*/
 			}
-			// send over the stuff
-			// respond with answer
-
-			//select {
-			//case a := <-answerClients[name].inbox:
-			// this will be the sdp or whatever offer
-			//}
-			// THE SIGNAL SERVERS JOB IS DONE
-
 		}
-	}()
+		// send over the stuff
+		// respond with answer
+
+		//select {
+		//case a := <-answerClients[name].inbox:
+		// this will be the sdp or whatever offer
+		//}
+		// THE SIGNAL SERVERS JOB IS DONE
+
+	}
 
 	// listen here for messages on the channel
 
@@ -251,20 +240,28 @@ func videocallAnswerWS(w http.ResponseWriter, r *http.Request) {
 		must(err)
 		message = string(readBuffer)
 		if message != "DONE" {
-			// send over the stuff
-			// we need to break up the name we are sending to and the sdp offer
+
 			if strings.HasPrefix(message, "request") {
-				fmt.Println(message)
-				message = strings.TrimPrefix(message, "request{ ")
-				return
-				/*
-					offerClients[message].inbox <- name
-					select {
-					case a := <-answerClients[name].inbox:
-						fmt.Println(a)
-						// this will be the sdp or whatever offer
-					}
-				*/
+
+				sendTo, sdpOffer := breakDownRequest(message)
+
+				message := fmt.Sprint(name + " " + sdpOffer)
+				fmt.Println(sendTo + " " + name + " " + sdpOffer)
+				fmt.Println("sending")
+				offerClients[sendTo].inbox <- message
+				fmt.Println("Waiting for response")
+
+				select {
+				case a := <-answerClients[name].inbox:
+					// idk if this is even necessary. Maybe it will just signal that they said yes, idk
+					fmt.Println(a)
+					// this will be the sdp or whatever offer
+
+				case <-time.After(60 * time.Second):
+					fmt.Println("Timeout")
+					return
+				}
+
 			}
 		}
 
@@ -275,4 +272,45 @@ func videocallAnswerWS(w http.ResponseWriter, r *http.Request) {
 
 func liMaker(name string) string {
 	return fmt.Sprintf("<li id=\"offer-item\" onclick=\"clickName('%s')\">%s</li>", name, name)
+}
+
+func nameHashAnswerValidation(nameHash string) (string, string, bool) {
+	objects := strings.Split(nameHash, " ")
+	response := answerClients[objects[0]]
+	if response.uuid == "" {
+		return "", "", false
+	} else if response.uuid == objects[1] {
+		return objects[0], objects[1], true
+	} else {
+		return "", "", false
+	}
+
+}
+
+func nameHashOfferValidation(nameHash string) (string, string, bool) {
+	objects := strings.Split(nameHash, " ")
+	response := offerClients[objects[0]]
+	if response.uuid == "" {
+		return "", "", false
+	} else if response.uuid == objects[1] {
+		return objects[0], objects[1], true
+	} else {
+		return "", "", false
+	}
+
+}
+
+func breakDownRequest(requestString string) (string, string) {
+	fmt.Println("START OF BREAKDOWN REQUEST")
+
+	message := strings.TrimPrefix(requestString, "request{ ")
+	fmt.Println(message)
+
+	splitStrings := strings.Split(message, " sdp: ")
+	splitStrings[0] = strings.TrimPrefix(splitStrings[0], "name: ")
+	fmt.Println("end of break down request")
+	fmt.Println(splitStrings[0])
+	fmt.Println(splitStrings[1])
+	return splitStrings[0], splitStrings[1]
+
 }
