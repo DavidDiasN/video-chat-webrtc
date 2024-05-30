@@ -10,6 +10,7 @@ let conn;
 let peerConn = new RTCPeerConnection(servers);
 let localStream = null;
 let remoteStream = null;
+let connectionPeerName = "";
 
 const protocolSep = "/:|:/"
 const webcamButton = document.getElementById("enable-webcam");
@@ -108,6 +109,7 @@ async function clickName(targetName) {
   await peerConn.setLocalDescription(answerObject);
 
   console.log(offerObject);
+  connectionPeerName = targetName;
   if (conn !== null) {
     conn.send("Answer" + protocolSep + targetName + protocolSep + JSON.stringify(answerObject));
   } 
