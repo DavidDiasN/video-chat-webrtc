@@ -11,9 +11,11 @@ let peerConn = new RTCPeerConnection(servers);
 let localStream = null;
 let remoteStream = null;
 
+const protocolSep = "/:|:/"
 const webcamButton = document.getElementById("enable-webcam");
 const webcamVideo = document.getElementById("local-video");
 const remoteVideo = document.getElementById("remote-video");
+const incomingOfferMap = new Map();
 
 
 function submitOfferName() {
@@ -38,67 +40,78 @@ function submitOfferName() {
 
         if (window['WebSocket']) {
           conn = new WebSocket('ws://' + document.location.host + '/videocall/MakeOffer/ws');
-          //let initial = true;
+          let initial = true;
           let answerList = document.getElementById("answer-list")
           console.log("ws started")
 
-
-
-
           conn.onopen = function () {
-            conn.send(inputValue + " " + hash)
+            conn.send(inputValue + " " + hash);
           }
 
-          conn.onclose = () => {
-            console.log("Connection closing")
+          conn.onclose = function () {
+            console.log("Connection closing");
           }
-
 
           conn.onmessage = evt => {
-            console.log("MESSAGE RECIEVED: " + evt.data)
+            let messageUnwrapped = evt.data.split("/:|:/");
+            console.log("MESSAGE Type: " + messageUnwrapped[0]);
 
-            if (evt.data.slice(0,3) === "<li") {
-              // add it to the list
-              // break down the html element and sdp
-              answerList.innerHTML = evt.data
+            if (initial) {
+              if (evt.data === "Invalid Hash") {
+                //whatever
+                console.log("STOPSTOPSTOPSOTP")
+                offerList.innerText = "STOPSTOPSTOPSTOP"
+                return
+              } else {
+
+                initial = false;
+              }
+            }            
+
+            if (messageUnwrapped[0] === "Offer") {
+              answerList.innerHTML += messageUnwrapped[1];
+              incomingOfferMap.set(answerList.innerText, messageUnwrapped[2]);
+
             } else if (evt.data === "DONE") {
-              console.log("wooo bye")
-              conn.send("DONE")
-              conn.close()
-            } 
+              console.log("wooo bye");
+              conn.send("DONE");
+              conn.close();
+            } else if (messageUnwrapped[0] === "Ice") {
 
-            
+              console.log("Ice route")
+              if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
+                console.log("No way jose")
+                return
+              }
+
+              const candidate = new RTCIceCandidate(JSON.parse(messageUnwrapped[2]));
+              peerConn.addIceCandidate(candidate);
+            }
           }
-
-
         }
       }
-
     });
-
-  // once the offer and answers have been exchanged we should end the websocket connection and just be in the call.
-  //
-
-
 }
 
-async function clickName(name) {
+async function clickName(targetName) {
+  console.log("Start")
 
-  // THIS IS THE ANSWER PLACE
-  /*
-  const offerDescription = await peerConn.createOffer();
-  await peerConn.setLocalDescription(offerDescription);
-  
-  const offer = {
-    sdp: offerDescription.sdp,
-    type: offerDescription.type,
-  };
-  */
+  peerConn.onicecandidate = event => {
+    if (event.candidate != null) {
+      conn.send("Ice"+ protocolSep + targetName + protocolSep + JSON.stringify(event.candidate));
+    }
+  }
 
-// on the other side i will simply json parse.
+  let offerObject = JSON.parse(incomingOfferMap.get(targetName));
+  await peerConn.setRemoteDescription(new RTCSessionDescription(offerObject));
+  const answerObject = await peerConn.createAnswer();
+  await peerConn.setLocalDescription(answerObject);
+
+  console.log(offerObject);
   if (conn !== null) {
-    conn.send("request{ name: " + name);
+    conn.send("Answer" + protocolSep + targetName + protocolSep + JSON.stringify(answerObject));
   } 
+  console.log("End");
 } 
 
 webcamButton.onclick = async () => {

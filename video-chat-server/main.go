@@ -27,15 +27,13 @@ type Client struct {
 	uuid  string
 }
 
+const protocolSep string = "/:|:/"
+
 var emptyClient = Client{}
 
-// treat all connections/clients the same. This will make things easier. the functions called will make it easy to differentiate between
-// a poster or an answerer.
 var answerClients = map[string]Client{}
 
-var offerClients = map[string]Client{"David": {make(chan string), uuid.NewString()}, "Michael": Client{make(chan string), uuid.NewString()}, "George": Client{make(chan string), uuid.NewString()}}
-
-//client:= map[string]websocket.Conn{"david": websocket.Conn{}, "Michael": websocket.Conn{}, "George": websocket.Conn{}}
+var offerClients = map[string]Client{}
 
 func main() {
 
@@ -131,72 +129,60 @@ func offerValidation(w http.ResponseWriter, r *http.Request) {
 func videocallOfferWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	must(err)
-	var message string
 	_, readBuffer, err := conn.ReadMessage()
 	must(err)
-	message = string(readBuffer)
-	name, hash, boolres := nameHashOfferValidation(message)
+	message := string(readBuffer)
+	name, _, boolres := nameHashOfferValidation(message)
 
 	if !boolres {
-		conn.WriteMessage(1, []byte("invalid offer"))
+		conn.WriteMessage(1, []byte("Invalid Hash"))
 		return
 	}
 
-	fmt.Println(hash)
-
-	incomingOffers := map[string]string{}
-
 	go func() {
 		for {
-
 			select {
 			case a := <-offerClients[name].inbox:
-				// process the string you get
-				// need to save the sdps in a map
-				// maybe just in a map over on the client side tho
-				splitMessage := strings.SplitN(a, " ", 2)
-				fmt.Println(len(splitMessage))
+				fmt.Println(a)
+				messageUnwrapped := protocolUnwrapper(a)
+				switch messageUnwrapped[0] {
+				case "Offer":
+					sendingMessage := protocolWrapper(messageUnwrapped[0], liMaker(messageUnwrapped[1]), messageUnwrapped[2])
+					conn.WriteMessage(1, []byte(sendingMessage))
+				case "Ice":
 
-				incomingOffers[splitMessage[0]] = splitMessage[1]
-				fmt.Println("DONE SPLITING THE MESSAGE")
-				conn.WriteMessage(1, []byte(liMaker(splitMessage[0])))
+					fmt.Println("ICEICEICEICE")
+					fmt.Println(a)
+					conn.WriteMessage(1, []byte(a))
+				}
 			}
 		}
 	}()
 
-	for message != "DONE" {
+	for {
 		_, readBuffer, err = conn.ReadMessage()
 		must(err)
 		message = string(readBuffer)
-		if message != "DONE" {
-			fmt.Println(message)
-			if strings.HasPrefix(message, "request") {
-				message = strings.TrimPrefix(message, "request{ ")
-				fmt.Println(message)
-
-				return
-				// message must contain the target and the answer.
-				/*
-					offerClients[message].inbox <- name
-				*/
-			}
+		if message == "DONE" {
+			return
 		}
-		// send over the stuff
-		// respond with answer
 
-		//select {
-		//case a := <-answerClients[name].inbox:
-		// this will be the sdp or whatever offer
-		//}
-		// THE SIGNAL SERVERS JOB IS DONE
+		fmt.Println(message)
+		messageUnwrapped := protocolUnwrapper(message)
 
+		switch messageUnwrapped[0] {
+		case "Answer":
+			offerClients[messageUnwrapped[1]].inbox <- messageUnwrapped[2]
+		case "Ice":
+
+			fmt.Println("ICEICEICEICE")
+			fmt.Println(messageUnwrapped[2])
+			sendTo := messageUnwrapped[1]
+			sendingMessage := protocolWrapper(messageUnwrapped[0], name, messageUnwrapped[2])
+			offerClients[sendTo].inbox <- sendingMessage
+
+		}
 	}
-
-	// listen here for messages on the channel
-
-	// when you get a message on the channel you need to send it to the websocket connection
-	// send it in a form it can be displayed in.
-
 }
 
 func videocallAnswerWS(w http.ResponseWriter, r *http.Request) {
@@ -206,66 +192,73 @@ func videocallAnswerWS(w http.ResponseWriter, r *http.Request) {
 	_, readBuffer, err := conn.ReadMessage()
 	must(err)
 	message = string(readBuffer)
-	name, hash, boolres := nameHashAnswerValidation(message)
+	name, _, boolres := nameHashAnswerValidation(message)
 
 	must(err)
 	if !boolres {
-		fmt.Println("Invalid")
+		conn.WriteMessage(1, []byte("Invalid Hash"))
 		return
 	}
-	fmt.Println(name)
-	fmt.Println(hash)
 
 	// keep reading the offers
 	lastUpdateLen := 0
 
+	accu := ""
 	go func() {
 
 		for {
-			accu := ""
 			if len(offerClients) != lastUpdateLen {
 				lastUpdateLen = len(offerClients)
 				for key := range offerClients {
 					accu += liMaker(key)
 				}
-				conn.WriteMessage(1, []byte(accu))
+				sendingMessage := protocolWrapper("Offers", accu)
+				conn.WriteMessage(1, []byte(sendingMessage))
+				accu = ""
 			}
 		}
 	}()
+	go func() {
 
-	for message != "DONE" {
-		_, readBuffer, err = conn.ReadMessage()
-		must(err)
-		message = string(readBuffer)
-		if message != "DONE" {
+		for {
 
-			if strings.HasPrefix(message, "request") {
+			_, readBuffer, err = conn.ReadMessage()
+			must(err)
+			message = string(readBuffer)
+			if message == "DONE" {
+				break
+			}
 
-				sendTo, sdpOffer := breakDownRequest(message)
+			messageUnwrapped := protocolUnwrapper(message)
 
-				message := fmt.Sprint(name + " " + sdpOffer)
-				fmt.Println(sendTo + " " + name + " " + sdpOffer)
-				fmt.Println("sending")
-				offerClients[sendTo].inbox <- message
-				fmt.Println("Waiting for response")
-
-				select {
-				case a := <-answerClients[name].inbox:
-					// idk if this is even necessary. Maybe it will just signal that they said yes, idk
-					fmt.Println(a)
-					// this will be the sdp or whatever offer
-
-				case <-time.After(60 * time.Second):
-					fmt.Println("Timeout")
-					return
-				}
-
+			switch messageUnwrapped[0] {
+			case "Offer":
+				sendTo := messageUnwrapped[1]
+				sendingMessage := protocolWrapper(messageUnwrapped[0], name, messageUnwrapped[2])
+				offerClients[sendTo].inbox <- sendingMessage
+			case "Ice":
+				fmt.Println("ICEICEICEICE")
+				fmt.Println(messageUnwrapped[2])
+				sendTo := messageUnwrapped[1]
+				sendingMessage := protocolWrapper(messageUnwrapped[0], name, messageUnwrapped[2])
+				offerClients[sendTo].inbox <- sendingMessage
 			}
 		}
 
-	}
+	}()
 
-	fmt.Println("closing")
+	for {
+		select {
+		case a := <-answerClients[name].inbox:
+			fmt.Println("sent to inbox")
+			conn.WriteMessage(1, []byte(a))
+		case <-time.After(60 * time.Second):
+			fmt.Println("Timeout")
+			return
+			// create a channel to end the go routine above as well as this loop, also add the possibility for the one above to end it
+			// end or be ended
+		}
+	}
 }
 
 func liMaker(name string) string {
@@ -311,4 +304,14 @@ func breakDownRequest(requestString string) (string, string) {
 	fmt.Println(splitStrings[1])
 	return splitStrings[0], splitStrings[1]
 
+}
+
+// protocol: message type, then who knows it depends on the message type
+
+func protocolUnwrapper(messageString string) []string {
+	return strings.Split(messageString, protocolSep)
+}
+
+func protocolWrapper(componenets ...string) string {
+	return strings.Join(componenets, protocolSep)
 }

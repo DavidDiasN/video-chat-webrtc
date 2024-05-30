@@ -11,15 +11,12 @@ let conn;
 let peerConn = new RTCPeerConnection(servers);
 let localStream = null;
 let remoteStream = null;
+let connectionPeerName = "";
 
+const protocolSep = "/:|:/"
 const webcamButton = document.getElementById("enable-webcam");
 const webcamVideo = document.getElementById("local-video");
 const remoteVideo = document.getElementById("remote-video");
-
-// request to input a name and such. 
-// check if the name is valid
-// if valid establish websocket connection
-// if invalid request the user try another username
 
 function submitAnswerName() {
   let inputButton = document.getElementById("user-input");
@@ -34,7 +31,7 @@ function submitAnswerName() {
     if (text === "NO") {
         console.log("it said no")
         return
-        // have a popup say that name is taken
+        // have a popup say that name is taken or something
       } else {
         console.log(text);
         inputButton.disabled = true;
@@ -43,36 +40,54 @@ function submitAnswerName() {
         if (window['WebSocket']) {
           conn = new WebSocket('ws://' + document.location.host + '/videocall/MakeAnswer/ws');
           let initial = true;
-
           let offerList = document.getElementById("offer-list")
-
-
-          console.log("we got here") 
 
           conn.onopen = function () {
             conn.send(inputValue + " " + hash)
           };
 
-          conn.onclose = () => {
+          conn.onclose = function () {
             console.log("Connection closing")
           };
 
           conn.onmessage = evt => {
-            console.log("MESSAGE RECV: " + evt.data);
+            let messageUnwrapped = evt.data.split("/:|:/");
+            console.log("MESSAGE Type: " + messageUnwrapped[0]);
+
             if (initial) {
-              console.log(evt.data);
-              initial = false;
+              if (evt.data === "Invalid Hash") {
+                //whatever
+                console.log("STOPSTOPSTOPSOTP")
+                offerList.innerText = "STOPSTOPSTOPSTOP"
+                return
+              } else {
+
+                initial = false;
+              }
             }            
-                
-            if (evt.data.slice(0,3) === "<li") {
-              console.log("Made it here")
-              // add it to the list
-              offerList.innerHTML = evt.data
-            } else {
-              
+
+            if (messageUnwrapped[0] === "DONE") {
               console.log("wooo bye")
               conn.send("DONE")
               conn.close()
+              return
+            } else if (messageUnwrapped[0] === "Offers") {
+              offerList.innerHTML = messageUnwrapped[1] 
+            } else if (messageUnwrapped[0] === "Answer") {
+              console.log(messageUnwrapped[2]);
+              connectionPeerName = messageUnwrapped[1];
+              const answerObject = new RTCSessionDescription(messageUnwrapped[2])
+              peerConn.setRemoteDescription(answerObject)
+
+            } else if (messageUnwrapped[0] === "Ice") {
+              console.log("Ice route")
+              if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
+                console.log("No way jose")
+                return
+              }
+
+              const candidate = new RTCIceCandidate(JSON.parse(messageUnwrapped[2]));
+              peerConn.addIceCandidate(candidate);
             }
 
           };
@@ -82,13 +97,15 @@ function submitAnswerName() {
       }
 
     });
-  // once the offer and answers have been exchanged we should end the websocket connection and just be in the call.
-  //
 }
 
-async function clickName(name) {
+async function clickName(targetName) {
   
-// you will work with offers here not answers
+  peerConn.onicecandidate = event => {
+    if (event.candidate != null) {
+      conn.send("Ice"+ protocolSep + targetName + protocolSep + JSON.stringify(event.candidate));
+    }
+  }
   
   const offerDescription = await peerConn.createOffer();
   await peerConn.setLocalDescription(offerDescription);
@@ -99,7 +116,7 @@ async function clickName(name) {
   };
 
   if (conn !== null) {
-    conn.send("request{ name: " + name + " sdp: " + JSON.stringify(offer));
+    conn.send("Offer" + protocolSep + targetName + protocolSep + JSON.stringify(offer));
   } 
 } 
 
