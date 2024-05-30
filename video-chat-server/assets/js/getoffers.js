@@ -76,15 +76,15 @@ function submitAnswerName() {
             } else if (messageUnwrapped[0] === "Answer") {
               console.log(messageUnwrapped[2]);
               connectionPeerName = messageUnwrapped[1];
-              const answerObject = new RTCSessionDescription(messageUnwrapped[2])
+              const answerObject = new RTCSessionDescription(JSON.parse(messageUnwrapped[2]))
               peerConn.setRemoteDescription(answerObject)
 
             } else if (messageUnwrapped[0] === "Ice") {
               console.log("Ice route")
-              if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
-                console.log("No way jose")
-                return
-              }
+              //if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
+              //  console.log("No way jose")
+              //  return
+              //}
 
               const candidate = new RTCIceCandidate(JSON.parse(messageUnwrapped[2]));
               peerConn.addIceCandidate(candidate);

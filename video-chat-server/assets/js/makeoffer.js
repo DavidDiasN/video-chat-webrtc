@@ -80,10 +80,10 @@ function submitOfferName() {
             } else if (messageUnwrapped[0] === "Ice") {
 
               console.log("Ice route")
-              if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
-                console.log("No way jose")
-                return
-              }
+              //if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
+              //  console.log("No way jose")
+              //  return
+              //}
 
               const candidate = new RTCIceCandidate(JSON.parse(messageUnwrapped[2]));
               peerConn.addIceCandidate(candidate);
