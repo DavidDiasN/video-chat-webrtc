@@ -80,13 +80,7 @@ function submitOfferName() {
             } else if (messageUnwrapped[0] === "Ice") {
 
               console.log("Ice route")
-              //if (messageUnwrapped[1] !== connectionPeerName || connectionPeerName === "" ) {
-              //  console.log("No way jose")
-              //  return
-              //}
-
-              const candidate = new RTCIceCandidate(JSON.parse(messageUnwrapped[2]));
-              peerConn.addIceCandidate(candidate);
+              peerConn.addIceCandidate(JSON.parse(messageUnwrapped[2]));
             }
           }
         }
@@ -97,11 +91,6 @@ function submitOfferName() {
 async function clickName(targetName) {
   console.log("Start")
 
-  peerConn.onicecandidate = event => {
-    if (event.candidate != null) {
-      conn.send("Ice"+ protocolSep + targetName + protocolSep + JSON.stringify(event.candidate));
-    }
-  }
 
   let offerObject = JSON.parse(incomingOfferMap.get(targetName));
   await peerConn.setRemoteDescription(new RTCSessionDescription(offerObject));
@@ -113,6 +102,15 @@ async function clickName(targetName) {
   if (conn !== null) {
     conn.send("Answer" + protocolSep + targetName + protocolSep + JSON.stringify(answerObject));
   } 
+
+
+
+  peerConn.onicecandidate = event => {
+    if (event.candidate != null) {
+      conn.send("Ice"+ protocolSep + targetName + protocolSep + JSON.stringify(event.candidate));
+    }
+  }
+
   console.log("End");
 } 
 
@@ -136,3 +134,8 @@ webcamButton.onclick = async () => {
 
 };
 
+peerConn.addEventListener('connectionstatechange', _ => {
+    if (peerConn.connectionState === 'connected') {
+      console.log("Peer connection established")
+    }
+});
